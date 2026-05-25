@@ -13,7 +13,6 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   console.log('POST /api/todos - body:', req.body);
-  console.log('POST /api/todos - headers:', req.headers);
   try {
     const todo = new Todo({
       title: req.body.title,
@@ -35,7 +34,7 @@ router.put('/:id', async (req, res) => {
         title: req.body.title,
         completed: req.body.completed
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!todo) return res.status(404).json({ error: 'Todo not found' });
     res.json(todo);
