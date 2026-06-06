@@ -16,7 +16,8 @@ router.post('/', async (req, res) => {
   try {
     const todo = new Todo({
       title: req.body.title,
-      completed: req.body.completed || false
+      completed: req.body.completed || false,
+      dueDate: req.body.dueDate || undefined
     });
     const savedTodo = await todo.save();
     res.status(201).json(savedTodo);
@@ -28,13 +29,14 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
+    const update = {};
+    if (req.body.title !== undefined) update.title = req.body.title;
+    if (req.body.completed !== undefined) update.completed = req.body.completed;
+    if (req.body.dueDate !== undefined) update.dueDate = req.body.dueDate;
     const todo = await Todo.findByIdAndUpdate(
       req.params.id,
-      {
-        title: req.body.title,
-        completed: req.body.completed
-      },
-      { returnDocument: 'after' }
+      update,
+      { returnDocument: 'after', runValidators: true }
     );
     if (!todo) return res.status(404).json({ error: 'Todo not found' });
     res.json(todo);
