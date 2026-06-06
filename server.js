@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const todoRoutes = require('./src/routes/todos');
+const shoppingRoutes = require('./src/routes/shopping');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,6 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/todos', todoRoutes);
+app.use('/api/shopping', shoppingRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
