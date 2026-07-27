@@ -5,6 +5,7 @@ const cors = require('cors');
 const todoRoutes = require('./src/routes/todos');
 const shoppingRoutes = require('./src/routes/shopping');
 const progressRoutes = require('./src/routes/progress');
+const elsaRoutes = require('./src/routes/elsa');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/api/todos', todoRoutes);
 app.use('/api/shopping', shoppingRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/elsa-cards', elsaRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
