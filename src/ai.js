@@ -2,6 +2,16 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const ElsaTask = require('./models/ElsaTask');
 const ElsaContext = require('./models/ElsaContext');
 
+let currentModel = 'gemini-2.5-flash-lite';
+
+function setModel(name) {
+  currentModel = name;
+}
+
+function getModel() {
+  return currentModel;
+}
+
 const tools = [
   {
     functionDeclarations: [
@@ -202,7 +212,7 @@ async function processMessage(userMessage) {
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', tools });
+  const model = genAI.getGenerativeModel({ model: currentModel, tools });
 
   const chat = model.startChat({
     history: [
@@ -235,4 +245,4 @@ async function processMessage(userMessage) {
   return response.response.text();
 }
 
-module.exports = { processMessage };
+module.exports = { processMessage, setModel, getModel };

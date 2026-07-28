@@ -1,5 +1,5 @@
 const { Telegraf } = require('telegraf');
-const { processMessage } = require('./ai');
+const { processMessage, setModel, getModel } = require('./ai');
 const ElsaTask = require('./models/ElsaTask');
 
 let bot = null;
@@ -110,6 +110,15 @@ function start() {
     } catch {
       await ctx.reply('Failed to delete task.');
     }
+  });
+
+  bot.command('model', async (ctx) => {
+    const arg = ctx.message.text.replace(/^\/model\s*/, '').trim();
+    if (!arg) {
+      return ctx.reply(`Current model: \`${getModel()}\`\nUsage: /model <name>`, { parse_mode: 'Markdown' });
+    }
+    setModel(arg);
+    await ctx.reply(`Model switched to \`${arg}\``, { parse_mode: 'Markdown' });
   });
 
   bot.command('debug', async (ctx) => {
