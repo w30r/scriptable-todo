@@ -122,11 +122,12 @@ function start() {
   });
 
   bot.command('debug', async (ctx) => {
-    const key = process.env.GEMINI_API_KEY;
+    const dsKey = process.env.DEEPSEEK_API_KEY;
     const botToken = process.env.BOT_TOKEN;
     const parts = [
       `🤖 *Bot Token:* ${botToken ? '✅ set' : '❌ missing'}`,
-      `🔑 *Gemini Key:* ${key ? `✅ set (\`${key.slice(0, 4)}...${key.slice(-4)}\`)` : '❌ missing'}`,
+      `🧠 *Model:* \`${getModel()}\``,
+      `🔑 *DeepSeek Key:* ${dsKey ? `✅ set (\`${dsKey.slice(0, 4)}...${dsKey.slice(-4)}\`)` : '❌ missing'}`,
       `📡 *NODE_ENV:* ${process.env.NODE_ENV || 'not set'}`,
     ];
     await ctx.reply(parts.join('\n'), { parse_mode: 'Markdown' });

@@ -1,8 +1,8 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 const ElsaTask = require('./models/ElsaTask');
 const ElsaContext = require('./models/ElsaContext');
 
-let currentModel = 'gemini-2.5-flash-lite';
+let currentModel = 'deepseek/deepseek-v4-flash';
 
 function setModel(name) {
   currentModel = name;
@@ -14,84 +14,104 @@ function getModel() {
 
 const tools = [
   {
-    functionDeclarations: [
-      {
-        name: 'listElsaTasks',
-        description: 'List Elsa tasks. Optionally filter by completion status.',
-        parameters: {
-          type: 'object',
-          properties: {
-            completed: { type: 'boolean', description: 'true for done tasks, false for pending, omit for all' }
-          }
+    type: 'function',
+    function: {
+      name: 'listElsaTasks',
+      description: 'List Elsa tasks. Optionally filter by completion status.',
+      parameters: {
+        type: 'object',
+        properties: {
+          completed: { type: 'boolean', description: 'true for done, false for pending, omit for all' }
         }
-      },
-      {
-        name: 'addElsaTask',
-        description: 'Create a new Elsa task',
-        parameters: {
-          type: 'object',
-          properties: {
-            title: { type: 'string', description: 'Task title' }
-          },
-          required: ['title']
-        }
-      },
-      {
-        name: 'updateElsaTask',
-        description: 'Update an Elsa task (title, completion status)',
-        parameters: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', description: 'Task ID (full MongoDB _id)' },
-            title: { type: 'string', description: 'New task title' },
-            completed: { type: 'boolean', description: 'true to mark done, false to reopen' }
-          },
-          required: ['id']
-        }
-      },
-      {
-        name: 'deleteElsaTask',
-        description: 'Delete an Elsa task by ID',
-        parameters: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', description: 'Task ID (full MongoDB _id)' }
-          },
-          required: ['id']
-        }
-      },
-      {
-        name: 'getTaskCounts',
-        description: 'Get counts of pending and completed Elsa tasks',
-        parameters: { type: 'object', properties: {} }
-      },
-      {
-        name: 'listElsaContextCards',
-        description: 'List Elsa context cards. Optionally filter by category.',
-        parameters: {
-          type: 'object',
-          properties: {
-            category: { type: 'string', enum: ['role', 'project', 'workflow', 'note'], description: 'Card category' }
-          }
-        }
-      },
-      {
-        name: 'searchElsaContextCards',
-        description: 'Search Elsa context cards by text in title or content',
-        parameters: {
-          type: 'object',
-          properties: {
-            query: { type: 'string', description: 'Search text' }
-          },
-          required: ['query']
-        }
-      },
-      {
-        name: 'getCardCounts',
-        description: 'Get counts of Elsa context cards per category',
-        parameters: { type: 'object', properties: {} }
       }
-    ]
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'addElsaTask',
+      description: 'Create a new Elsa task',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Task title' }
+        },
+        required: ['title']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'updateElsaTask',
+      description: 'Update an Elsa task (title, completion status)',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Task ID (full MongoDB _id)' },
+          title: { type: 'string', description: 'New task title' },
+          completed: { type: 'boolean', description: 'true to mark done, false to reopen' }
+        },
+        required: ['id']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'deleteElsaTask',
+      description: 'Delete an Elsa task by ID',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Task ID (full MongoDB _id)' }
+        },
+        required: ['id']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getTaskCounts',
+      description: 'Get counts of pending and completed Elsa tasks',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'listElsaContextCards',
+      description: 'List Elsa context cards. Optionally filter by category.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: { type: 'string', enum: ['role', 'project', 'workflow', 'note'], description: 'Card category' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'searchElsaContextCards',
+      description: 'Search Elsa context cards by text in title or content',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search text' }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getCardCounts',
+      description: 'Get counts of Elsa context cards per category',
+      parameters: { type: 'object', properties: {} }
+    }
   }
 ];
 
@@ -195,10 +215,10 @@ async function callWithRetry(fn, retries = MAX_RETRIES) {
       await rateLimit();
       return await fn();
     } catch (err) {
-      const is429 = err.message?.includes('429') || err.status === 429;
+      const is429 = err.status === 429;
       if (is429 && i < retries) {
         const wait = 2000 * Math.pow(2, i);
-        console.warn(`Gemini 429, retrying in ${wait}ms (attempt ${i + 1}/${retries})`);
+        console.warn(`DeepSeek 429, retrying in ${wait}ms (attempt ${i + 1}/${retries})`);
         await sleep(wait);
         continue;
       }
@@ -208,41 +228,66 @@ async function callWithRetry(fn, retries = MAX_RETRIES) {
 }
 
 async function processMessage(userMessage) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: currentModel, tools });
-
-  const chat = model.startChat({
-    history: [
-      {
-        role: 'user',
-        parts: [{ text: 'You are ELSA, an AI work assistant. You manage Elsa tasks (work to-dos) and Elsa context cards (knowledge base). Be concise and helpful. Use the available tools to look up or modify data when needed.' }]
-      },
-      {
-        role: 'model',
-        parts: [{ text: 'Understood. I am ELSA, your work assistant. I can help with tasks and context cards.' }]
-      }
-    ]
+  const client = new OpenAI({
+    baseURL: 'https://api.deepseek.com',
+    apiKey,
   });
 
-  let response = await callWithRetry(() => chat.sendMessage(userMessage));
-  let fn = response.response.functionCall();
+  const messages = [
+    {
+      role: 'system',
+      content: 'You are ELSA, an AI work assistant. You manage Elsa tasks (work to-dos) and Elsa context cards (knowledge base). Be concise and helpful. Use the available tools to look up or modify data when needed.'
+    },
+    { role: 'user', content: userMessage }
+  ];
 
-  while (fn) {
-    const handler = handlers[fn.name];
-    if (!handler) throw new Error(`Unknown function: ${fn.name}`);
-
-    const result = await handler(fn.args);
-    const resultResponse = await callWithRetry(() =>
-      chat.sendMessage([{ functionResponse: { name: fn.name, response: { result } } }])
+  while (true) {
+    const response = await callWithRetry(() =>
+      client.chat.completions.create({
+        model: currentModel,
+        messages,
+        tools,
+        tool_choice: 'auto',
+      })
     );
-    fn = resultResponse.response.functionCall();
-    response = resultResponse;
-  }
 
-  return response.response.text();
+    const msg = response.choices[0].message;
+
+    if (!msg.tool_calls || msg.tool_calls.length === 0) {
+      return msg.content || '';
+    }
+
+    messages.push(msg);
+
+    for (const call of msg.tool_calls) {
+      const handler = handlers[call.function.name];
+      if (!handler) {
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: JSON.stringify({ error: `Unknown function: ${call.function.name}` }),
+        });
+        continue;
+      }
+
+      let result;
+      try {
+        const args = JSON.parse(call.function.arguments);
+        result = await handler(args);
+      } catch (err) {
+        result = { error: err.message };
+      }
+
+      messages.push({
+        role: 'tool',
+        tool_call_id: call.id,
+        content: JSON.stringify(result),
+      });
+    }
+  }
 }
 
 module.exports = { processMessage, setModel, getModel };
