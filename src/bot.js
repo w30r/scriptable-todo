@@ -178,6 +178,8 @@ function start() {
     ];
     await ctx.reply(parts.join('\n'), { parse_mode: 'Markdown' });
   });
+
+  bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
     const chatId = ctx.chat.id;
     try {
