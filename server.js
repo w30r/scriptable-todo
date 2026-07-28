@@ -7,6 +7,7 @@ const shoppingRoutes = require('./src/routes/shopping');
 const progressRoutes = require('./src/routes/progress');
 const elsaContextRoutes = require('./src/routes/elsacontext');
 const elsaTaskRoutes = require('./src/routes/elsa-tasks');
+const telegramBot = require('./src/bot');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,10 +39,13 @@ const connectDB = async () => {
 };
 
 if (require.main === module) {
-  connectDB();
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  (async () => {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+    telegramBot.start();
+  })();
 }
 
 module.exports = app;
