@@ -1,10 +1,11 @@
 const { Telegraf } = require('telegraf');
 const { processMessage, setModel, getModel } = require('./ai');
 const ElsaTask = require('./models/ElsaTask');
+const TimesheetEntry = require('./models/TimesheetEntry');
 
 let bot = null;
 const sessions = new Map();
-const SYSTEM_PROMPT = { role: 'system', content: 'You are ELSA, an AI work assistant. You manage Elsa tasks (work to-dos) and Elsa context cards (knowledge base). Be concise and helpful. Use the available tools to look up or modify data when needed.' };
+const SYSTEM_PROMPT = { role: 'system', content: 'You are ELSA, an AI work assistant. You manage Elsa tasks (work to-dos), Elsa context cards (knowledge base), and timesheet entries (daily work logs). Be concise and helpful. Use the available tools to look up or modify data when needed.' };
 const MAX_SESSION_MSGS = 20;
 
 function start() {
@@ -24,7 +25,9 @@ function start() {
       '*/add <title>* — add a task\n' +
       '*/done <id>* — mark done\n' +
       '*/undo <id>* — reopen\n' +
-      '*/delete <id>* — remove\n\n' +
+      '*/delete <id>* — remove\n' +
+      '*/eod <text>* — log today\'s work\n' +
+      '*/timesheet <date>* — show entries\n\n' +
       'Or just chat naturally and I\'ll use AI to help.',
       { parse_mode: 'Markdown' }
     );
@@ -124,19 +127,57 @@ function start() {
     await ctx.reply(`Model switched to \`${arg}\``, { parse_mode: 'Markdown' });
   });
 
+  function todayStr() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  }
+
+  bot.command('eod', async (ctx) => {
+    const text = ctx.message.text.replace(/^\/eod\s*/, '').trim();
+    if (!text) {
+      const entries = await TimesheetEntry.find({ date: todayStr() }).sort({ createdAt: -1 });
+      if (entries.length === 0) return ctx.reply('No entries for today yet. Use `/eod <text>` to log.', { parse_mode: 'Markdown' });
+      const lines = entries.map(e => `\`${e.createdAt ? new Date(e.createdAt).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }) : ''}\` ${e.text}`);
+      await ctx.reply(`📋 *Today (${todayStr()})*\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
+      return;
+    }
+    try {
+      const entry = new TimesheetEntry({ date: todayStr(), text });
+      const saved = await entry.save();
+      await ctx.reply(`✅ Logged for *${saved.date}*: "${saved.text}"`, { parse_mode: 'Markdown' });
+    } catch {
+      await ctx.reply('Failed to log entry.');
+    }
+  });
+
+  bot.command('timesheet', async (ctx) => {
+    const arg = ctx.message.text.replace(/^\/timesheet\s*/, '').trim();
+    const date = arg || todayStr();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return ctx.reply('Usage: /timesheet YYYY-MM-DD');
+    try {
+      const entries = await TimesheetEntry.find({ date }).sort({ createdAt: -1 });
+      if (entries.length === 0) return ctx.reply('No entries for *' + date + '*.', { parse_mode: 'Markdown' });
+      const lines = entries.map(e => {
+        const time = e.createdAt ? new Date(e.createdAt).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }) : '';
+        return '`' + time + '` ' + e.text + ' — `/delete-eod ' + e._id.toString().slice(-4) + '`';
+      });
+      await ctx.reply('📋 *Entries for ' + date + '*\n' + lines.join('\n'), { parse_mode: 'Markdown' });
+    } catch {
+      await ctx.reply('Failed to load entries.');
+    }
+  });
+
   bot.command('debug', async (ctx) => {
     const dsKey = process.env.DEEPSEEK_API_KEY;
     const botToken = process.env.BOT_TOKEN;
     const parts = [
-      `🤖 *Bot Token:* ${botToken ? '✅ set' : '❌ missing'}`,
-      `🧠 *Model:* \`${getModel()}\``,
-      `🔑 *DeepSeek Key:* ${dsKey ? `✅ set (\`${dsKey.slice(0, 4)}...${dsKey.slice(-4)}\`)` : '❌ missing'}`,
-      `📡 *NODE_ENV:* ${process.env.NODE_ENV || 'not set'}`,
+      '🤖 *Bot Token:* ' + (botToken ? '✅ set' : '❌ missing'),
+      '🧠 *Model:* `' + getModel() + '`',
+      '🔑 *DeepSeek Key:* ' + (dsKey ? '✅ set (`' + dsKey.slice(0, 4) + '...' + dsKey.slice(-4) + '`)' : '❌ missing'),
+      '📡 *NODE_ENV:* ' + (process.env.NODE_ENV || 'not set'),
     ];
     await ctx.reply(parts.join('\n'), { parse_mode: 'Markdown' });
   });
-
-  bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
     const chatId = ctx.chat.id;
     try {

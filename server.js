@@ -7,6 +7,7 @@ const shoppingRoutes = require('./src/routes/shopping');
 const progressRoutes = require('./src/routes/progress');
 const elsaContextRoutes = require('./src/routes/elsacontext');
 const elsaTaskRoutes = require('./src/routes/elsa-tasks');
+const timesheetRoutes = require('./src/routes/timesheet');
 const telegramBot = require('./src/bot');
 
 const app = express();
@@ -20,6 +21,7 @@ app.use('/api/shopping', shoppingRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/elsacontext', elsaContextRoutes);
 app.use('/api/elsa-tasks', elsaTaskRoutes);
+app.use('/api/timesheet', timesheetRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

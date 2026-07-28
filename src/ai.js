@@ -1,6 +1,7 @@
 const OpenAI = require("openai");
 const ElsaTask = require("./models/ElsaTask");
 const ElsaContext = require("./models/ElsaContext");
+const TimesheetEntry = require("./models/TimesheetEntry");
 
 let currentModel = "deepseek-v4-flash";
 
@@ -170,8 +171,57 @@ const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'addTimesheetEntry',
+      description: 'Log a timesheet entry for a specific date',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
+          text: { type: 'string', description: 'What was done' },
+        },
+        required: ['date', 'text'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getTimesheetEntries',
+      description: 'Get timesheet entries for a specific date or date range',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'Date in YYYY-MM-DD format. If omitted, returns today.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getTimesheetDates',
+      description: 'Get all dates that have timesheet entries, with counts',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'deleteTimesheetEntry',
+      description: 'Delete a timesheet entry by ID',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Entry ID (full MongoDB _id)' },
+        },
+        required: ['id'],
+      },
+    },
+  },
 ];
-
 const handlers = {
   async listElsaTasks(args) {
     const filter =
@@ -286,6 +336,33 @@ const handlers = {
     const card = await ElsaContext.findByIdAndDelete(args.id);
     if (!card) throw new Error('Card not found');
     return { deleted: card.title };
+  },
+
+  async addTimesheetEntry(args) {
+    const entry = new TimesheetEntry({ date: args.date, text: args.text });
+    const saved = await entry.save();
+    return { id: saved._id.toString(), date: saved.date, text: saved.text };
+  },
+
+  async getTimesheetEntries(args) {
+    const date = (args && args.date) || new Date().toISOString().slice(0, 10);
+    const entries = await TimesheetEntry.find({ date }).sort({ createdAt: -1 });
+    return entries.map(e => ({ id: e._id.toString(), date: e.date, text: e.text, createdAt: e.createdAt }));
+  },
+
+  async getTimesheetDates() {
+    const dates = await TimesheetEntry.aggregate([
+      { $group: { _id: '$date', count: { $sum: 1 } } },
+      { $sort: { _id: -1 } },
+      { $project: { date: '$_id', count: 1, _id: 0 } }
+    ]);
+    return dates;
+  },
+
+  async deleteTimesheetEntry(args) {
+    const entry = await TimesheetEntry.findByIdAndDelete(args.id);
+    if (!entry) throw new Error('Entry not found');
+    return { deleted: entry.date + ': ' + entry.text };
   },
 };
 
