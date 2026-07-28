@@ -162,6 +162,41 @@ const handlers = {
   }
 };
 
+let lastCallTime = 0;
+const MIN_INTERVAL = 1500;
+const MAX_RETRIES = 3;
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function rateLimit() {
+  const now = Date.now();
+  const elapsed = now - lastCallTime;
+  if (elapsed < MIN_INTERVAL) {
+    await sleep(MIN_INTERVAL - elapsed);
+  }
+  lastCallTime = Date.now();
+}
+
+async function callWithRetry(fn, retries = MAX_RETRIES) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      await rateLimit();
+      return await fn();
+    } catch (err) {
+      const is429 = err.message?.includes('429') || err.status === 429;
+      if (is429 && i < retries) {
+        const wait = 2000 * Math.pow(2, i);
+        console.warn(`Gemini 429, retrying in ${wait}ms (attempt ${i + 1}/${retries})`);
+        await sleep(wait);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 async function processMessage(userMessage) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
@@ -182,7 +217,7 @@ async function processMessage(userMessage) {
     ]
   });
 
-  let response = await chat.sendMessage(userMessage);
+  let response = await callWithRetry(() => chat.sendMessage(userMessage));
   let fn = response.response.functionCall();
 
   while (fn) {
@@ -190,7 +225,9 @@ async function processMessage(userMessage) {
     if (!handler) throw new Error(`Unknown function: ${fn.name}`);
 
     const result = await handler(fn.args);
-    const resultResponse = await chat.sendMessage([{ functionResponse: { name: fn.name, response: { result } } }]);
+    const resultResponse = await callWithRetry(() =>
+      chat.sendMessage([{ functionResponse: { name: fn.name, response: { result } } }])
+    );
     fn = resultResponse.response.functionCall();
     response = resultResponse;
   }
