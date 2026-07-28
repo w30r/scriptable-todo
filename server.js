@@ -5,7 +5,7 @@ const cors = require('cors');
 const todoRoutes = require('./src/routes/todos');
 const shoppingRoutes = require('./src/routes/shopping');
 const progressRoutes = require('./src/routes/progress');
-const elsaRoutes = require('./src/routes/elsa');
+const elsaContextRoutes = require('./src/routes/elsacontext');
 const elsaTaskRoutes = require('./src/routes/elsa-tasks');
 
 const app = express();
@@ -17,7 +17,7 @@ app.use(express.json());
 app.use('/api/todos', todoRoutes);
 app.use('/api/shopping', shoppingRoutes);
 app.use('/api/progress', progressRoutes);
-app.use('/api/elsa-cards', elsaRoutes);
+app.use('/api/elsacontext', elsaContextRoutes);
 app.use('/api/elsa-tasks', elsaTaskRoutes);
 
 app.get('/health', (req, res) => {

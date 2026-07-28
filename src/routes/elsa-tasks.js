@@ -15,7 +15,8 @@ router.post('/', async (req, res) => {
   try {
     const task = new ElsaTask({
       title: req.body.title,
-      completed: req.body.completed || false
+      completed: req.body.completed || false,
+      completedAt: req.body.completed ? new Date() : null
     });
     const saved = await task.save();
     res.status(201).json(saved);
@@ -28,7 +29,10 @@ router.put('/:id', async (req, res) => {
   try {
     const update = {};
     if (req.body.title !== undefined) update.title = req.body.title;
-    if (req.body.completed !== undefined) update.completed = req.body.completed;
+    if (req.body.completed !== undefined) {
+      update.completed = req.body.completed;
+      update.completedAt = req.body.completed ? new Date() : null;
+    }
     const task = await ElsaTask.findByIdAndUpdate(
       req.params.id,
       update,
