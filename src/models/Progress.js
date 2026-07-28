@@ -20,6 +20,10 @@ const progressSchema = new mongoose.Schema({
   totalCompleted: {
     type: Number,
     default: 0
+  },
+  elsaTab: {
+    type: String,
+    default: 'tasks'
   }
 });
 
