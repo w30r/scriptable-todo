@@ -3,6 +3,9 @@ const { processMessage, setModel, getModel } = require('./ai');
 const ElsaTask = require('./models/ElsaTask');
 
 let bot = null;
+const sessions = new Map();
+const SYSTEM_PROMPT = { role: 'system', content: 'You are ELSA, an AI work assistant. You manage Elsa tasks (work to-dos) and Elsa context cards (knowledge base). Be concise and helpful. Use the available tools to look up or modify data when needed.' };
+const MAX_SESSION_MSGS = 20;
 
 function start() {
   const TOKEN = process.env.BOT_TOKEN;
@@ -135,12 +138,30 @@ function start() {
 
   bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
+    const chatId = ctx.chat.id;
     try {
       ctx.sendChatAction('typing');
-      const reply = await processMessage(ctx.message.text);
+
+      let messages = sessions.get(chatId);
+      if (!messages) {
+        messages = [SYSTEM_PROMPT];
+        sessions.set(chatId, messages);
+      }
+
+      messages.push({ role: 'user', content: ctx.message.text });
+
+      const reply = await processMessage(messages);
+
+      if (messages.length > MAX_SESSION_MSGS) {
+        const sys = messages[0];
+        messages = [sys, ...messages.slice(-(MAX_SESSION_MSGS - 1))];
+        sessions.set(chatId, messages);
+      }
+
       if (reply) await ctx.reply(reply, { parse_mode: 'Markdown' });
     } catch (err) {
       console.error('AI error:', err.message);
+      sessions.delete(chatId);
       await ctx.reply(
         `⚠️ *AI Error:* \`${err.message}\`\n\n` +
         'Type /debug to check environment variables.',

@@ -116,11 +116,58 @@ const tools = [
     },
   },
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "getCardCounts",
-      description: "Get counts of Elsa context cards per category",
-      parameters: { type: "object", properties: {} },
+      name: 'getCardCounts',
+      description: 'Get counts of Elsa context cards per category',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'addElsaContextCard',
+      description: 'Create a new Elsa context card',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Card title' },
+          category: { type: 'string', enum: ['role', 'project', 'workflow', 'note'], description: 'Card category' },
+          content: { type: 'string', description: 'Card content / notes' },
+        },
+        required: ['title', 'category'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'updateElsaContextCard',
+      description: 'Update an Elsa context card (title, category, content)',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Card ID (full MongoDB _id)' },
+          title: { type: 'string', description: 'New card title' },
+          category: { type: 'string', enum: ['role', 'project', 'workflow', 'note'], description: 'New category' },
+          content: { type: 'string', description: 'New content' },
+        },
+        required: ['id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'deleteElsaContextCard',
+      description: 'Delete an Elsa context card by ID',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Card ID (full MongoDB _id)' },
+        },
+        required: ['id'],
+      },
     },
   },
 ];
@@ -186,7 +233,7 @@ const handlers = {
       id: c._id.toString(),
       title: c.title,
       category: c.category,
-      content: c.content,
+      content: truncate(c.content),
     }));
   },
 
@@ -202,7 +249,7 @@ const handlers = {
       id: c._id.toString(),
       title: c.title,
       category: c.category,
-      content: c.content,
+      content: truncate(c.content),
     }));
   },
 
@@ -214,7 +261,40 @@ const handlers = {
     }
     return { total: all.length, byCategory };
   },
+
+  async addElsaContextCard(args) {
+    const card = new ElsaContext({
+      title: args.title,
+      category: args.category,
+      content: args.content || '',
+    });
+    const saved = await card.save();
+    return { id: saved._id.toString(), title: saved.title, category: saved.category, content: saved.content };
+  },
+
+  async updateElsaContextCard(args) {
+    const update = {};
+    if (args.title !== undefined) update.title = args.title;
+    if (args.category !== undefined) update.category = args.category;
+    if (args.content !== undefined) update.content = args.content;
+    const card = await ElsaContext.findByIdAndUpdate(args.id, update, { new: true, runValidators: true });
+    if (!card) throw new Error('Card not found');
+    return { id: card._id.toString(), title: card.title, category: card.category, content: card.content };
+  },
+
+  async deleteElsaContextCard(args) {
+    const card = await ElsaContext.findByIdAndDelete(args.id);
+    if (!card) throw new Error('Card not found');
+    return { deleted: card.title };
+  },
 };
+
+const MAX_HISTORY = 20;
+
+function truncate(s, max = 200) {
+  if (!s || s.length <= max) return s;
+  return s.slice(0, max) + ' [...]';
+}
 
 let lastCallTime = 0;
 const MIN_INTERVAL = 1500;
@@ -253,7 +333,7 @@ async function callWithRetry(fn, retries = MAX_RETRIES) {
   }
 }
 
-async function processMessage(userMessage) {
+async function processMessage(messages) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error("DEEPSEEK_API_KEY not set");
 
@@ -261,15 +341,6 @@ async function processMessage(userMessage) {
     baseURL: "https://api.deepseek.com",
     apiKey,
   });
-
-  const messages = [
-    {
-      role: "system",
-      content:
-        "You are ELSA, an AI work assistant. You manage Elsa tasks (work to-dos) and Elsa context cards (knowledge base). Be concise and helpful. Use the available tools to look up or modify data when needed.",
-    },
-    { role: "user", content: userMessage },
-  ];
 
   while (true) {
     const response = await callWithRetry(() =>
@@ -284,6 +355,7 @@ async function processMessage(userMessage) {
     const msg = response.choices[0].message;
 
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
+      messages.push(msg);
       return msg.content || "";
     }
 
