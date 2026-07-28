@@ -44,7 +44,11 @@ if (require.main === module) {
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
-    telegramBot.start();
+    try {
+      telegramBot.start();
+    } catch (err) {
+      console.error('Bot init error:', err.message);
+    }
   })();
 }
 

@@ -148,8 +148,15 @@ function start() {
     }
   });
 
-  bot.launch();
-  console.log('Telegram bot started (commands + AI)');
+  try {
+    bot.launch();
+    console.log('Telegram bot started (commands + AI)');
+  } catch (err) {
+    console.error('Telegram bot failed to start:', err.message);
+  }
+
+  process.once('SIGTERM', () => bot?.stop?.());
+  process.once('SIGINT', () => bot?.stop?.());
 }
 
 async function matchTask(suffix) {
