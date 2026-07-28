@@ -148,12 +148,11 @@ function start() {
     }
   });
 
-  try {
-    bot.launch();
+  bot.launch().then(() => {
     console.log('Telegram bot started (commands + AI)');
-  } catch (err) {
+  }).catch(err => {
     console.error('Telegram bot failed to start:', err.message);
-  }
+  });
 
   process.once('SIGTERM', () => bot?.stop?.());
   process.once('SIGINT', () => bot?.stop?.());
