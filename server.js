@@ -27,16 +27,25 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
-    console.log("MongoDB connected");
-  } catch (err) {
-    console.error("MongoDB connection error:", err.message);
-    process.exit(1);
+const connectDB = async (retries = 5, retryDelayMs = 5000) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await mongoose.connect(process.env.MONGO_URI, {
+        serverSelectionTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+      });
+      console.log("MongoDB connected");
+      return;
+    } catch (err) {
+      if (attempt === retries) {
+        console.error("MongoDB connection error:", err.message);
+        process.exit(1);
+      }
+      console.warn(
+        `MongoDB connection failed (attempt ${attempt}/${retries}): ${err.message}. Retrying in ${retryDelayMs / 1000}s`
+      );
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
   }
 };
 
