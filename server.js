@@ -22,6 +22,7 @@ app.use("/api/progress", progressRoutes);
 app.use("/api/elsacontext", elsaContextRoutes);
 app.use("/api/elsa-tasks", elsaTaskRoutes);
 app.use("/api/timesheet", timesheetRoutes);
+app.use("/api/timesheetz", timesheetRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
