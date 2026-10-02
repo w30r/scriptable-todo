@@ -13,6 +13,11 @@ const elsaTaskSchema = new mongoose.Schema({
   completedAt: {
     type: Date,
     default: null
+  },
+  priority: {
+    type: String,
+    enum: ['high', 'medium', 'low'],
+    default: 'medium'
   }
 }, {
   timestamps: true
